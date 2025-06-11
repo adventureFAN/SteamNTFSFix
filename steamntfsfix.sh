@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Config-Datei für gespeicherte Pfade
-CONFIG_FILE="$HOME/.steamntfsfix.conf"
+CONFIG_FILE="$HOME/.config/steamntfsfix.conf"
 
 # Funktion zum Speichern der Pfade
 save_config() {
