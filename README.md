@@ -22,7 +22,7 @@ Steam Proton’s compatibility data (`compatdata`) stored on NTFS partitions can
 
 ## 🚀 Usage
 
-1. Run the script:  
+1. Download and run the script:  
    ```bash
    chmod +x steamntfsfix.sh
    ./steamntfsfix.sh
