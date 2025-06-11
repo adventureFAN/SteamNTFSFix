@@ -26,11 +26,11 @@ Steam Proton’s compatibility data (`compatdata`) stored on NTFS partitions can
    ```bash
    chmod +x steamntfsfix.sh
    ./steamntfsfix.sh
-2. On first run, you’ll be prompted to select the NTFS source (`compatdata`) folder on your NTFS drive) and the target folder on your ext4 partition.
+2. On first run, you’ll be prompted to select the NTFS source (`compatdata` folder on your NTFS drive) and the target folder on your ext4 partition.
 3. Enter the Steam App ID of the game you want to fix (make sure you have launched the game at least once).
 4. The script will create the symlink allowing Steam to find the Proton data correctly.
 5. You’ll be asked if you want to fix another game.
-6. Your selected paths are saved in (`~/.config/steamntfsfix.conf`) so you won’t need to enter them again next time.
+6. Your selected paths are saved in `~/.config/steamntfsfix.conf` so you won’t need to enter them again next time.
 7. If saved paths exist, the script will ask if you want to change them before proceeding.
 
 ## ⚠️ Notes
