@@ -1,33 +1,101 @@
 #!/bin/bash
 
-# SteamNTFSFix - GUI tool to relocate Proton prefixes from NTFS to Linux-native drives
-# Dependencies: zenity, rsync
+# Config-Datei für gespeicherte Pfade
+CONFIG_FILE="$HOME/.steamntfsfix.conf"
 
-# Ask user where to store fixed prefixes
-TARGET_DIR=$(zenity --file-selection \
-    --directory \
-    --title="Select Linux-native directory (e.g. ext4) to store fixed Proton prefixes")
+# Funktion zum Speichern der Pfade
+save_config() {
+    echo "NTFS_COMPATDATA_DIR=\"$NTFS_COMPATDATA_DIR\"" > "$CONFIG_FILE"
+    echo "EXT4_PREFIX_BASE=\"$EXT4_PREFIX_BASE\"" >> "$CONFIG_FILE"
+}
 
-[ -z "$TARGET_DIR" ] && exit 0
+# Funktion zur Auswahl eines Ordners via Zenity
+select_directory() {
+    local prompt="$1"
+    zenity --file-selection --directory --title="$prompt"
+}
 
-# Ask user to select the broken compatdata folder
-SOURCE_PREFIX=$(zenity --file-selection \
-    --directory \
-    --title="Select the broken 'compatdata/<APPID>' folder on your NTFS Steam library")
+# Funktion zum Laden gespeicherter Pfade (mit Änderungsdialog)
+load_config() {
+    if [ -f "$CONFIG_FILE" ]; then
+        # Vorherige Werte aus der Datei lesen
+        source "$CONFIG_FILE"
 
-[ -z "$SOURCE_PREFIX" ] && exit 0
+        if [ -n "$NTFS_COMPATDATA_DIR" ] && [ -n "$EXT4_PREFIX_BASE" ]; then
+            zenity --question --title="Use Saved Paths?" \
+            --text="Current saved paths:
 
-APPID=$(basename "$SOURCE_PREFIX")
-DEST_PREFIX="$TARGET_DIR/$APPID"
+NTFS compatdata:
+$NTFS_COMPATDATA_DIR
 
-# Copy data
-mkdir -p "$DEST_PREFIX"
-zenity --info --text="Copying data... please wait."
-rsync -a "$SOURCE_PREFIX/" "$DEST_PREFIX/"
+EXT4 target:
+$EXT4_PREFIX_BASE
 
-# Backup original and create symlink
-TIMESTAMP=$(date +%s)
-mv "$SOURCE_PREFIX" "${SOURCE_PREFIX}_backup_$TIMESTAMP"
-ln -s "$DEST_PREFIX" "$SOURCE_PREFIX"
+Do you want to change them?"
+            
+            if [ $? -eq 0 ]; then
+                NTFS_COMPATDATA_DIR=$(select_directory "Select your NTFS Steam compatdata folder")
+                [ -z "$NTFS_COMPATDATA_DIR" ] && zenity --error --text="No NTFS compatdata folder selected. Exiting." && exit 1
 
-zenity --info --text="✅ Done! Proton prefix for AppID $APPID moved and linked."
+                EXT4_PREFIX_BASE=$(select_directory "Select target folder on ext4 partition")
+                [ -z "$EXT4_PREFIX_BASE" ] && zenity --error --text="No target ext4 folder selected. Exiting." && exit 1
+
+                save_config
+            fi
+        else
+            # Einer der Werte fehlt oder ist leer
+            NTFS_COMPATDATA_DIR=$(select_directory "Select your NTFS Steam compatdata folder")
+            [ -z "$NTFS_COMPATDATA_DIR" ] && zenity --error --text="No NTFS compatdata folder selected. Exiting." && exit 1
+
+            EXT4_PREFIX_BASE=$(select_directory "Select target folder on ext4 partition")
+            [ -z "$EXT4_PREFIX_BASE" ] && zenity --error --text="No target ext4 folder selected. Exiting." && exit 1
+
+            save_config
+        fi
+    else
+        # Noch keine Config vorhanden
+        NTFS_COMPATDATA_DIR=$(select_directory "Select your NTFS Steam compatdata folder")
+        [ -z "$NTFS_COMPATDATA_DIR" ] && zenity --error --text="No NTFS compatdata folder selected. Exiting." && exit 1
+
+        EXT4_PREFIX_BASE=$(select_directory "Select target folder on ext4 partition")
+        [ -z "$EXT4_PREFIX_BASE" ] && zenity --error --text="No target ext4 folder selected. Exiting." && exit 1
+
+        save_config
+    fi
+}
+
+# Hauptfunktion zum Fixen eines Spiels
+fix_game() {
+    APPID=$(zenity --entry --title="SteamNTFSFix - Enter App ID" \
+        --text="Enter the Steam App-ID to fix.  
+Make sure you've started the game at least once in Steam.")
+
+    [ -z "$APPID" ] && zenity --error --text="No App ID entered. Exiting." && exit 1
+
+    SRC_DIR="$NTFS_COMPATDATA_DIR/$APPID"
+    DST_DIR="$EXT4_PREFIX_BASE/$APPID"
+
+    [ ! -d "$SRC_DIR" ] && zenity --error --text="Source folder does not exist:\n$SRC_DIR" && exit 1
+
+    mkdir -p "$DST_DIR"
+
+    # Lösche alten Prefix, egal ob Verzeichnis oder Symlink
+    [ -L "$SRC_DIR" ] || [ -d "$SRC_DIR" ] && rm -rf "$SRC_DIR"
+
+    ln -s "$DST_DIR" "$SRC_DIR"
+
+    zenity --info --text="✅ Symlink created:\n$SRC_DIR → $DST_DIR"
+
+    zenity --question --text="Do you want to fix another game?"
+    return $?
+}
+
+# Hauptablauf
+load_config
+
+while true; do
+    fix_game
+    [ $? -ne 0 ] && break
+done
+
+echo "Bye!"
